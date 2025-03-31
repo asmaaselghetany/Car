@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Car Control System - Mission Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            background-image: 
+                linear-gradient(45deg, #1a1a1a 25%, transparent 25%),
+                linear-gradient(-45deg, #1a1a1a 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #1a1a1a 75%),
+                linear-gradient(-45deg, transparent 75%, #1a1a1a 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            background-color: #2c3e50;
+        }
+
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.8);
+            border: 4px solid #3498db;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+        }
+
+        .game-header {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px #3498db;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #3498db; }
+            to { text-shadow: 0 0 20px #3498db, 0 0 30px #3498db; }
+        }
+
+        .status-card {
+            background: rgba(44, 62, 80, 0.9);
+            border: 2px solid #3498db;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .status-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .status-card h3 {
+            color: #3498db;
+            font-size: 1em;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+            box-shadow: 0 0 10px currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .status-moving { 
+            background-color: #2ecc71;
+            color: #2ecc71;
+        }
+        .status-slowing { 
+            background-color: #f1c40f;
+            color: #f1c40f;
+        }
+        .status-stopped { 
+            background-color: #e74c3c;
+            color: #e74c3c;
+        }
+        .status-idle { 
+            background-color: #3498db;
+            color: #3498db;
+        }
+
+        .progress {
+            height: 25px;
+            background: #1a1a1a;
+            border: 2px solid #3498db;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            transition: width 1s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            animation: progress-shine 2s infinite;
+        }
+
+        @keyframes progress-shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #3498db;
+            text-shadow: 0 0 5px #3498db;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            color: #95a5a6;
+            font-size: 0.7em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .map-container {
+            position: relative;
+            border: 2px solid #3498db;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
+        }
+
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            border: 2px solid #3498db;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            padding: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .map-control-btn {
+            background: none;
+            border: 1px solid #3498db;
+            color: #3498db;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7em;
+        }
+
+        .map-control-btn:hover {
+            background: #3498db;
+            color: #fff;
+        }
+
+        .map-control-btn.active {
+            background: #3498db;
+            color: #fff;
+            box-shadow: 0 0 10px #3498db;
+        }
+
+        .map-info-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            padding: 10px;
+            z-index: 1000;
+            font-size: 0.8em;
+            max-width: 200px;
+        }
+
+        .map-info-panel h4 {
+            color: #3498db;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .map-info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .status-messages {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .status-message {
+            padding: 5px;
+            margin: 2px 0;
+            border-left: 2px solid #3498db;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-message::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: #3498db;
+            animation: messagePulse 2s infinite;
+        }
+
+        @keyframes messagePulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .mission-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #3498db;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .car-marker {
+            width: 20px;
+            height: 20px;
+            background-color: #3498db;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .car-marker::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background-color: #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Ensure smooth marker movement */
+        .leaflet-marker-pane > * {
+            transition: transform 0.5s ease;
+        }
+
+        /* Improve marker visibility */
+        .leaflet-marker-icon {
+            border: none !important;
+            background: none !important;
+        }
+
+        .stats-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        .stats-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 2000;
+        }
+
+        .stats-content {
+            position: relative;
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            width: 80%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 5px;
+        }
+
+        .close-stats {
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chart-box {
+            flex: 1;
+            min-width: 300px;
+            max-width: 600px;
+            height: 400px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .summary-box {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .summary-item {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .instance-selector {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .instance-selector select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .comparison-item {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .comparison-item h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .comparison-value {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .comparison-value span:first-child {
+            color: #666;
+        }
+
+        .comparison-value span:last-child {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="game-header">
+            <h1>MISSION CONTROL</h1>
+            <span class="blink">SYSTEM ACTIVE</span>
+        </div>
+
+        <div class="status-card">
+            <h3>Vehicle Status</h3>
+            <div class="d-flex align-items-center mb-3">
+                <div id="status-indicator" class="status-indicator status-idle"></div>
+                <h4 id="car-status" class="mb-0">INITIALIZING...</h4>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-3">
+                    <div class="metric-value" id="current-speed">0</div>
+                    <div class="metric-label">Speed (km/h)</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-value" id="battery-level">100</div>
+                    <div class="metric-label">Battery (%)</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-value" id="engine-temp">0</div>
+                    <div class="metric-label">Engine (°C)</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-value" id="tire-pressure">0</div>
+                    <div class="metric-label">Tires (bar)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>Mission Progress</h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="metric-value" id="eta">0</div>
+                    <div class="metric-label">ETA (min)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="metric-value" id="distance">0</div>
+                    <div class="metric-label">Distance (km)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="metric-value" id="system-health">GOOD</div>
+                    <div class="metric-label">System Health</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>Environment Status</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="metric-value" id="congestion-level">UNKNOWN</div>
+                    <div class="metric-label">Traffic Level</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="metric-value" id="weather-conditions">UNKNOWN</div>
+                    <div class="metric-label">Weather</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>System Messages</h3>
+            <div id="status-messages" class="status-messages"></div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-controls">
+                <button class="map-control-btn" onclick="toggleRouteDetails()">Route</button>
+                <button class="map-control-btn" onclick="centerOnCar()">Center</button>
+            </div>
+            <div class="map-info-panel">
+                <h4>Mission Details</h4>
+                <div class="map-info-item">
+                    <span>Distance Left:</span>
+                    <span id="map-distance">0 km</span>
+                </div>
+                <div class="map-info-item">
+                    <span>ETA:</span>
+                    <span id="map-eta">0 min</span>
+                </div>
+                <div class="map-info-item">
+                    <span>Speed:</span>
+                    <span id="map-speed">0 km/h</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mission-control">
+        <div>MISSION CONTROL</div>
+        <div class="blink">ACTIVE</div>
+    </div>
+
+    <button class="stats-button" onclick="showStats()">See Statistics</button>
+
+    <div id="statsModal" class="stats-modal">
+        <div class="stats-content">
+            <span class="close-stats" onclick="closeStats()">&times;</span>
+            <h2>Process Instance Comparisons</h2>
+            
+            <div class="instance-selector">
+                <label for="instanceSelect">Select Instance to Compare:</label>
+                <select id="instanceSelect" onchange="updateInstanceComparison()">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+
+            <div class="summary-box">
+                <h3>Instance Comparisons</h3>
+                <div class="comparison-grid" id="comparisonSummary">
+                    <div class="comparison-item">
+                        <h4>Speed Comparison</h4>
+                        <div id="speedComparison">
+                            <!-- Speed comparison data will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="comparison-item">
+                        <h4>Temperature Comparison</h4>
+                        <div id="temperatureComparison">
+                            <!-- Temperature comparison data will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="comparison-item">
+                        <h4>Incidents Comparison</h4>
+                        <div id="incidentsComparison">
+                            <!-- Incidents comparison data will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-box">
+                    <canvas id="speedComparisonChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="temperatureComparisonChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="incidentsComparisonChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="visibilityComparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API_CONFIG = {
+            BASE_URL: '/ports/15000',
+            TOMTOM_API_KEY: 'dWbDR9lXANVX3XFYaJWrerRXXPAV9PDt',
+            OPENWEATHER_API_KEY: '5bff22751b54cff1cf4dfe5c05b6c706',
+            ENDPOINTS: {
+                UPDATE_INSTANCE_ID: '/update_instance_id',
+                GET_CAR_STATE: '/get_car_state',
+                UPDATE_CAR_SPEED: '/update_car_speed',
+                UPDATE_CAR_LIGHTS: '/update_car_lights',
+                UPDATE_CAR_FOG_LIGHTS: '/update_car_fog_lights',
+                GET_CITY_COORDINATES: '/get_city_coordinates',
+                GET_TRAFFIC_DATA: '/get_traffic_data',
+                GET_WEATHER_DATA: '/get_weather_data',
+                GET_ROUTE_DATA: '/get_route_data',
+                LAST_LOCATION: '/last_location',
+                UPDATE_CAR_WAYPOINTS: '/update_car_waypoints'
+            }
+        };
+
+        let carState = {
+            current_latitude: 48.1351,
+            current_longitude: 11.5820,
+            current_speed: 0,
+            current_speed_limit: 100,
+            fog_lights: false,
+            lights: false,
+            arrived: false,
+            current_threshold: 25,
+            waypoints: ["Karlsplatz 1, 80335 Munich", "Neuhauser Str. 1, 80331 Munich"],
+            instance_id: null,
+            last_update_time: Date.now(),
+            route_points: [],
+            current_route_index: 0,
+            route_initialized: false,
+            route_data_retrieved: false,
+            main_loop_started: false
+        };
+        let map;
+        let carMarker;
+        let routeLine;
+        let startMarker;
+        let endMarker;
+        let lastUpdateTime = 0;
+        const UPDATE_INTERVAL = 5000; // Match XML process timing
+
+        let speedChart, temperatureChart, incidentsChart, visibilityChart;
+
+        function initializeCharts() {
+            // Initialize Speed Chart
+            const speedCtx = document.getElementById('speedComparisonChart');
+            if (speedCtx) {
+                speedChart = new Chart(speedCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Speed (km/h)',
+                            data: [],
+                            borderColor: '#3498db',
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        title: {
+                            display: true,
+                            text: 'Speed Comparison Across Instances'
+                        }
+                    }
+                });
+            }
+
+            // Initialize Temperature Chart
+            const tempCtx = document.getElementById('temperatureComparisonChart');
+            if (tempCtx) {
+                temperatureChart = new Chart(tempCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Temperature (°C)',
+                            data: [],
+                            borderColor: '#e74c3c',
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        title: {
+                            display: true,
+                            text: 'Temperature Comparison Across Instances'
+                        }
+                    }
+                });
+            }
+
+            // Initialize Incidents Chart
+            const incidentsCtx = document.getElementById('incidentsComparisonChart');
+            if (incidentsCtx) {
+                incidentsChart = new Chart(incidentsCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Total Incidents',
+                            data: [],
+                            backgroundColor: '#f1c40f'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        title: {
+                            display: true,
+                            text: 'Total Incidents by Instance'
+                        }
+                    }
+                });
+            }
+
+            // Initialize Visibility Chart
+            const visibilityCtx = document.getElementById('visibilityComparisonChart');
+            if (visibilityCtx) {
+                visibilityChart = new Chart(visibilityCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Visibility (km)',
+                            data: [],
+                            borderColor: '#2ecc71',
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        title: {
+                            display: true,
+                            text: 'Visibility Comparison Across Instances'
+                        }
+                    }
+                });
+            }
+        }
+
+        async function initializeDashboard() {
+            try {
+                // Initialize map first
+                initializeMap();
+                
+                // Initialize charts
+                initializeCharts();
+                
+                // Initialize car instance
+                const instanceResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UPDATE_INSTANCE_ID}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        instance_id: 'default_' + Date.now(),
+                        waypoints: carState.waypoints.join(',')
+                    })
+                });
+
+                if (!instanceResponse || !instanceResponse.ok) {
+                    const errorText = await instanceResponse?.text() || 'No response received';
+                    throw new Error(`Failed to initialize car instance: ${errorText}`);
+                }
+
+                const instanceData = await instanceResponse.json();
+                carState = instanceData.car;
+
+                // Get route data using the waypoints from car state
+                const routeResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GET_ROUTE_DATA}?waypoints=${JSON.stringify(carState.waypoints)}&instance_id=${carState.instance_id}`);
+
+                if (!routeResponse.ok) {
+                    throw new Error(`Failed to get route data: ${routeResponse.status}`);
+                }
+
+                const routeData = await routeResponse.json();
+                if (routeData && routeData.route_points) {
+                    // Update the route line with actual route points
+                    updateRouteLine(routeData.route_points);
+                }
+
+                // Start dashboard updates
+                updateDashboard();
+                setInterval(updateDashboard, UPDATE_INTERVAL);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error: ' + error.message, true);
+            }
+        }
+
+        function initializeMap() {
+            try {
+                // Initialize map with OpenStreetMap
+                map = L.map('map', {
+                    minZoom: 10,
+                    maxZoom: 18
+                });
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                // Create custom icons for markers
+                const startIcon = L.divIcon({
+                    className: 'custom-marker start-marker',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+
+                const endIcon = L.divIcon({
+                    className: 'custom-marker end-marker',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+
+                const carIcon = L.divIcon({
+                    className: 'car-marker',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+
+                // Add markers with exact coordinates
+                startMarker = L.marker([48.1351, 11.5820], {
+                    icon: startIcon,
+                    title: 'Start: Munich'
+                }).addTo(map);
+
+                endMarker = L.marker([48.2490, 11.6510], {
+                    icon: endIcon,
+                    title: 'End: Garching'
+                }).addTo(map);
+
+                // Initialize car marker at start position
+                carMarker = L.marker([48.1351, 11.5820], {
+                    icon: carIcon,
+                    title: 'Vehicle'
+                }).addTo(map);
+
+                // Initialize empty route line
+                routeLine = L.polyline([], {
+                    color: '#3498db',
+                    weight: 4,
+                    opacity: 0.7,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                }).addTo(map);
+
+                // Set bounds to include both start and end points
+                const bounds = L.latLngBounds(
+                    [48.1351, 11.5820],
+                    [48.2490, 11.6510]
+                );
+                map.fitBounds(bounds, {
+                    padding: [50, 50]
+                });
+
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                showStatus('Error initializing map: ' + error.message, true);
+            }
+        }
+
+        async function updateDashboard() {
+            try {
+                const currentTime = Date.now();
+                if (currentTime - lastUpdateTime < UPDATE_INTERVAL) {
+                    return; // Skip update if too soon
+                }
+                lastUpdateTime = currentTime;
+
+                // Get car state with instance ID
+                const carResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GET_CAR_STATE}?instance_id=${carState.instance_id}`);
+                const carData = await carResponse.json();
+                carState = carData.car;
+
+                // Only update if we have new data
+                if (!carState || !carState.current_latitude || !carState.current_longitude) {
+                    return;
+                }
+
+                // Get traffic data
+                const trafficResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GET_TRAFFIC_DATA}?latitude=${carState.current_latitude}&longitude=${carState.current_longitude}&instance_id=${carState.instance_id}`);
+                const trafficData = await trafficResponse.json();
+
+                // Get weather data
+                const weatherResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GET_WEATHER_DATA}?latitude=${carState.current_latitude}&longitude=${carState.current_longitude}&instance_id=${carState.instance_id}`);
+                const weatherData = await weatherResponse.json();
+
+                // Get route data only if we don't have it or if it's changed
+                let routeData = null;
+                if (!routeLine || !routeLine.getLatLngs().length) {
+                    const routeResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GET_ROUTE_DATA}?waypoints=${JSON.stringify(carState.waypoints)}&instance_id=${carState.instance_id}`);
+                    routeData = await routeResponse.json();
+                }
+
+                // Update route line with actual route points
+                if (routeData && routeData.route_points && routeData.route_points.length > 0) {
+                    updateRouteLine(routeData.route_points);
+                }
+
+                // Update UI with new data
+                updateUI(carState, trafficData, weatherData);
+
+            } catch (error) {
+                console.error('Error updating dashboard:', error);
+                showStatus('Error updating dashboard: ' + error.message, true);
+            }
+        }
+
+        function findNextRoutePoint(routePoints, carState) {
+            // Find the next point in the route that's ahead of the car
+            for (let i = 0; i < routePoints.length - 1; i++) {
+                const point = routePoints[i];
+                const nextPoint = routePoints[i + 1];
+                const carPos = [carState.current_latitude, carState.current_longitude];
+                
+                if (isPointBetween(carPos, point, nextPoint)) {
+                    return nextPoint;
+                }
+            }
+            return routePoints[routePoints.length - 1];
+        }
+
+        function isPointBetween(point, start, end) {
+            const d1 = calculateDistance(start[0], start[1], point[0], point[1]);
+            const d2 = calculateDistance(point[0], point[1], end[0], end[1]);
+            const lineLength = calculateDistance(start[0], start[1], end[0], end[1]);
+            
+            // Allow for some margin of error
+            const margin = 0.0001;
+            return Math.abs(d1 + d2 - lineLength) < margin;
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function updateUI(carState, trafficData, weatherData) {
+            // Update car status
+            const statusIndicator = document.getElementById('status-indicator');
+            const carStatus = document.getElementById('car-status');
+            
+            if (carState.arrived) {
+                statusIndicator.className = 'status-indicator status-stopped';
+                carStatus.textContent = 'ARRIVED';
+            } else if (carState.current_speed > 0) {
+                statusIndicator.className = 'status-indicator status-moving';
+                carStatus.textContent = 'MOVING';
+            } else {
+                statusIndicator.className = 'status-indicator status-idle';
+                carStatus.textContent = 'IDLE';
+            }
+
+            // Update metrics
+            document.getElementById('current-speed').textContent = carState.current_speed.toFixed(1);
+            document.getElementById('battery-level').textContent = '100';
+            document.getElementById('engine-temp').textContent = '90';
+            document.getElementById('tire-pressure').textContent = '2.4';
+
+            // Calculate remaining distance
+            let distance = 0;
+            if (carState.route_points && carState.route_points.length > 0) {
+                const totalPoints = carState.route_points.length;
+                const currentIndex = carState.current_route_index || 0;
+                
+                // Calculate total route distance
+                let totalDistance = 0;
+                for (let i = 0; i < totalPoints - 1; i++) {
+                    const point1 = carState.route_points[i];
+                    const point2 = carState.route_points[i + 1];
+                    totalDistance += calculateDistance(point1[0], point1[1], point2[0], point2[1]);
+                }
+                
+                // Calculate distance traveled
+                let distanceTraveled = 0;
+                for (let i = 0; i < currentIndex; i++) {
+                    const point1 = carState.route_points[i];
+                    const point2 = carState.route_points[i + 1];
+                    distanceTraveled += calculateDistance(point1[0], point1[1], point2[0], point2[1]);
+                }
+                
+                // Add distance from current point to car's position
+                if (currentIndex < totalPoints) {
+                    const currentPoint = carState.route_points[currentIndex];
+                    distanceTraveled += calculateDistance(
+                        currentPoint[0],
+                        currentPoint[1],
+                        carState.current_latitude,
+                        carState.current_longitude
+                    );
+                }
+                
+                // Calculate remaining distance
+                distance = totalDistance - distanceTraveled;
+            }
+
+            // Update car marker position
+            if (carMarker && carState.current_latitude && carState.current_longitude) {
+                const newPosition = [carState.current_latitude, carState.current_longitude];
+                
+                // Update marker position without animation for more accurate positioning
+                carMarker.setLatLng(newPosition);
+                
+                // Calculate bearing for car rotation if we have route points
+                if (carState.route_points && carState.route_points.length > 0) {
+                    const currentIndex = carState.current_route_index || 0;
+                    const nextIndex = Math.min(currentIndex + 1, carState.route_points.length - 1);
+                    
+                    if (nextIndex < carState.route_points.length) {
+                        const nextPoint = carState.route_points[nextIndex];
+                        const bearing = calculateBearing(
+                            carState.current_latitude,
+                            carState.current_longitude,
+                            nextPoint[0],
+                            nextPoint[1]
+                        );
+                        
+                        // Apply rotation to car marker
+                        const carElement = carMarker.getElement();
+                        if (carElement) {
+                            carElement.style.transform = `rotate(${bearing}deg)`;
+                        }
+                    }
+                }
+                
+                // Auto-follow car if enabled
+                if (document.querySelector('.map-control-btn:nth-child(2)').classList.contains('active')) {
+                    map.setView(newPosition, map.getZoom());
+                }
+            }
+
+            // Update route line if we have route points
+            if (carState.route_points && carState.route_points.length > 0) {
+                updateRouteLine(carState.route_points);
+            }
+
+            // Update distance and ETA with traffic consideration
+            document.getElementById('distance').textContent = distance.toFixed(1);
+            
+            // Calculate ETA considering traffic conditions
+            let eta = 0;
+            if (carState.current_speed > 0) {
+                // Get traffic delay from traffic data
+                const trafficDelay = trafficData ? (trafficData.free_flow_speeds - trafficData.live_speeds) / trafficData.free_flow_speeds : 0;
+                // Adjust speed based on traffic
+                const effectiveSpeed = carState.current_speed * (1 - trafficDelay);
+                eta = Math.round(distance / effectiveSpeed * 60);
+            }
+            document.getElementById('eta').textContent = eta;
+
+            // Update map info
+            document.getElementById('map-distance').textContent = `${distance.toFixed(1)} km`;
+            document.getElementById('map-eta').textContent = `${eta} min`;
+            document.getElementById('map-speed').textContent = `${carState.current_speed.toFixed(1)} km/h`;
+
+            // Update environment status
+            const congestionLevel = document.getElementById('congestion-level');
+            if (congestionLevel) {
+                congestionLevel.textContent = trafficData && trafficData.incidents > 0 ? 'HEAVY' : 'NORMAL';
+            }
+
+            const weatherConditions = document.getElementById('weather-conditions');
+            if (weatherConditions) {
+                weatherConditions.textContent = weatherData && weatherData.weather_conditions 
+                    ? weatherData.weather_conditions 
+                    : 'UNKNOWN';
+            }
+
+            // Clear existing messages
+            const statusMessages = document.getElementById('status-messages');
+            if (statusMessages) {
+                statusMessages.innerHTML = '';
+            }
+
+            // Add backend state messages
+            if (!carState.route_initialized) {
+                showStatus('🔄 Initializing route and vehicle systems...', false);
+            } else if (!carState.route_data_retrieved) {
+                showStatus('🗺️ Retrieving route data from navigation service...', false);
+            } else if (!carState.main_loop_started) {
+                showStatus('🚀 Starting main control loop...', false);
+            } else {
+                // Show API status
+                if (!API_CONFIG.TOMTOM_API_KEY) {
+                    showStatus('⚠️ Using simulated data - TomTom API not configured', true);
+                }
+
+                // Show current state messages
+                if (carState.arrived) {
+                    showStatus('✅ Mission Complete: Vehicle has arrived at destination!', false);
+                } else if (carState.current_speed > 0) {
+                    showStatus('🚗 Vehicle in motion - Speed: ' + carState.current_speed.toFixed(1) + ' km/h', false);
+                    
+                    if (carState.current_speed > carState.current_speed_limit) {
+                        showStatus('⚠️ Speed exceeds limit - Adjusting to ' + carState.current_speed_limit + ' km/h', true);
+                    }
+                }
+
+                // Show traffic updates
+                if (trafficData) {
+                    if (trafficData.incidents > 0) {
+                        showStatus('🚦 Traffic incident detected - Recalculating route', true);
+                    }
+                    if (trafficData.road_closure) {
+                        showStatus('🚫 Road closure ahead - Finding alternative route', true);
+                    }
+                    if (trafficData.is_rush_hour) {
+                        showStatus('⏰ Rush hour traffic - Adjusting ETA', false);
+                    }
+                    if (!API_CONFIG.TOMTOM_API_KEY) {
+                        showStatus('📊 Using simulated traffic data', false);
+                    }
+                }
+
+                // Show weather updates
+                if (weatherData && weatherData.weather_conditions !== 'Clear') {
+                    showStatus(`🌤️ Weather conditions: ${weatherData.weather_conditions}`, false);
+                    if (weatherData.weather_threshold > 5) {
+                        showStatus('⚠️ Poor visibility - Activating safety measures', true);
+                    }
+                }
+                if (!API_CONFIG.TOMTOM_API_KEY) {
+                    showStatus('🌡️ Using simulated weather data', false);
+                }
+
+                // Show route calculation method
+                if (!API_CONFIG.TOMTOM_API_KEY) {
+                    showStatus('🗺️ Using fallback route calculation', false);
+                }
+
+                // Show light status
+                if (carState.lights) {
+                    showStatus('💡 Headlights: ON', false);
+                }
+                if (carState.fog_lights) {
+                    showStatus('🔦 Fog lights: ON', false);
+                }
+
+                // Show last update time
+                showStatus(`🕒 Last update: ${new Date().toLocaleTimeString()}`, false);
+            }
+        }
+
+        function calculateProgress(currentLat, currentLon, startLat, startLon, endLat, endLon) {
+            // If we have route points and current_route_index, use them for more accurate progress
+            if (routeLine && routeLine.getLatLngs().length > 0 && carState && carState.current_route_index !== undefined) {
+                const routePoints = routeLine.getLatLngs();
+                const totalPoints = routePoints.length;
+                const currentIndex = carState.current_route_index;
+                
+                // Calculate progress based on current route index
+                const progress = (currentIndex / (totalPoints - 1)) * 100;
+                
+                // If we're at the last point, check if we're close to the destination
+                if (currentIndex === totalPoints - 1) {
+                    const distanceToEnd = calculateDistance(
+                        currentLat,
+                        currentLon,
+                        endLat,
+                        endLon
+                    );
+                    
+                    // If we're very close to the destination, set progress to 100%
+                    if (distanceToEnd < 0.1) {
+                        return 100;
+                    }
+                }
+                
+                return Math.min(100, progress);
+            }
+
+            // Fallback to straight-line calculation if no route points
+            const totalDistance = calculateDistance(startLat, startLon, endLat, endLon);
+            const traveledDistance = calculateDistance(startLat, startLon, currentLat, currentLon);
+            return Math.min(100, (traveledDistance / totalDistance) * 100);
+        }
+
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.sin(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            let bearing = Math.atan2(y, x) * 180 / Math.PI;
+            return (bearing + 360) % 360;
+        }
+
+        function showStatus(message, isError = false) {
+            const statusMessages = document.getElementById('status-messages');
+            if (statusMessages) {
+                const messageElement = document.createElement('div');
+                messageElement.className = `status-message ${isError ? 'text-danger' : 'text-success'}`;
+                messageElement.textContent = message;
+                statusMessages.insertBefore(messageElement, statusMessages.firstChild);
+                setTimeout(() => messageElement.remove(), 5000);
+            }
+        }
+
+        function toggleRouteDetails() {
+            const btn = document.querySelector('.map-control-btn:nth-child(1)');
+            btn.classList.toggle('active');
+            const mapInfoPanel = document.querySelector('.map-info-panel');
+            if (mapInfoPanel) {
+                mapInfoPanel.style.display = btn.classList.contains('active') ? 'block' : 'none';
+            }
+        }
+
+        function centerOnCar() {
+            if (map && carMarker) {
+                const pos = carMarker.getLatLng();
+                if (pos && pos.lat && pos.lng) {
+                    map.setView(pos, 13, {
+                        animate: true,
+                        duration: 1
+                    });
+                }
+            }
+        }
+
+        function updateRouteLine(routePoints) {
+            if (!map || !routePoints || routePoints.length < 2) return;
+
+            // Convert route points to the format Leaflet expects
+            const coordinates = routePoints.map(point => [point[0], point[1]]);
+
+            // Remove existing route line if it exists
+            if (routeLine) {
+                map.removeLayer(routeLine);
+            }
+
+            // Create new route line with proper styling
+            routeLine = L.polyline(coordinates, {
+                color: '#3498db',
+                weight: 4,
+                opacity: 0.7,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(map);
+
+            // Fit map bounds to show entire route
+            map.fitBounds(routeLine.getBounds(), {
+                padding: [50, 50]
+            });
+        }
+
+        // Add interpolation function to get position along route
+        function interpolatePosition(routePoints, progress) {
+            if (!routePoints || routePoints.length < 2) return null;
+
+            // Calculate total route length
+            let totalLength = 0;
+            const segmentLengths = [];
+            for (let i = 0; i < routePoints.length - 1; i++) {
+                const length = calculateDistance(
+                    routePoints[i][0], routePoints[i][1],
+                    routePoints[i + 1][0], routePoints[i + 1][1]
+                );
+                totalLength += length;
+                segmentLengths.push(length);
+            }
+
+            // Find target distance based on progress
+            const targetDistance = (progress / 100) * totalLength;
+
+            // Find segment containing target position
+            let coveredDistance = 0;
+            for (let i = 0; i < segmentLengths.length; i++) {
+                if (coveredDistance + segmentLengths[i] >= targetDistance) {
+                    // Calculate position within segment
+                    const segmentProgress = (targetDistance - coveredDistance) / segmentLengths[i];
+                    const start = routePoints[i];
+                    const end = routePoints[i + 1];
+                    
+                    // Interpolate position
+                    return {
+                        lat: start[0] + (end[0] - start[0]) * segmentProgress,
+                        lng: start[1] + (end[1] - start[1]) * segmentProgress,
+                        bearing: calculateBearing(start[0], start[1], end[0], end[1])
+                    };
+                }
+                coveredDistance += segmentLengths[i];
+            }
+
+            // If we're at the end, return the last point
+            return {
+                lat: routePoints[routePoints.length - 1][0],
+                lng: routePoints[routePoints.length - 1][1],
+                bearing: 0
+            };
+        }
+
+        // Start dashboard updates when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeDashboard();
+            // Update every 2 seconds instead of 5
+            setInterval(updateDashboard, UPDATE_INTERVAL);
+        });
+
+        function showStats() {
+            document.getElementById('statsModal').style.display = 'block';
+            fetchAndDisplayStats();
+        }
+
+        function closeStats() {
+            document.getElementById('statsModal').style.display = 'none';
+        }
+
+        function fetchAndDisplayStats() {
+            // Get the current instance ID from the car state
+            const currentInstanceId = carState.instance_id || 'unknown';
+            fetch(`${API_CONFIG.BASE_URL}/get_statistics?instance_id=${currentInstanceId}`)
+                .then(response => response.json())
+                .then(data => {
+                    populateInstanceSelector(data.instances);
+                    updateInstanceComparison();
+                })
+                .catch(error => console.error('Error fetching statistics:', error));
+        }
+
+        function populateInstanceSelector(instances) {
+            const select = document.getElementById('instanceSelect');
+            select.innerHTML = '';
+            
+            instances.forEach(instance => {
+                const option = document.createElement('option');
+                option.value = instance.instance_id;
+                option.textContent = `Instance ${instance.instance_id}`;
+                select.appendChild(option);
+            });
+        }
+
+        function updateInstanceComparison() {
+            const selectedInstanceId = document.getElementById('instanceSelect').value;
+            
+            fetch(`${API_CONFIG.BASE_URL}/get_statistics?instance_id=${selectedInstanceId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const instances = data.instances;
+                    const selectedInstance = instances.find(i => i.instance_id === selectedInstanceId);
+                    
+                    if (selectedInstance) {
+                        // Calculate averages across all instances
+                        const allSpeeds = instances.map(i => i.summary.avg_speed).filter(s => s > 0);
+                        const allTemps = instances.map(i => i.summary.avg_temperature).filter(t => t > 0);
+                        const allIncidents = instances.map(i => i.summary.total_incidents);
+                        
+                        const avgSpeed = allSpeeds.length > 0 ? allSpeeds.reduce((a, b) => a + b, 0) / allSpeeds.length : 0;
+                        const avgTemp = allTemps.length > 0 ? allTemps.reduce((a, b) => a + b, 0) / allTemps.length : 0;
+                        const avgIncidents = allIncidents.length > 0 ? allIncidents.reduce((a, b) => a + b, 0) / allIncidents.length : 0;
+                        
+                        // Update the comparison display
+                        document.getElementById('speedComparison').innerHTML = `
+                            <div>This Instance: ${selectedInstance.summary.avg_speed.toFixed(1)} km/h</div>
+                            <div>Average All Instances: ${avgSpeed.toFixed(1)} km/h</div>
+                        `;
+                        
+                        document.getElementById('temperatureComparison').innerHTML = `
+                            <div>This Instance: ${selectedInstance.summary.avg_temperature.toFixed(1)}°C</div>
+                            <div>Average All Instances: ${avgTemp.toFixed(1)}°C</div>
+                        `;
+                        
+                        document.getElementById('incidentsComparison').innerHTML = `
+                            <div>This Instance: ${selectedInstance.summary.total_incidents}</div>
+                            <div>Average All Instances: ${avgIncidents.toFixed(1)}</div>
+                        `;
+                        
+                        updateComparisonCharts(selectedInstance, instances);
+                    }
+                })
+                .catch(error => console.error('Error updating comparison:', error));
+        }
+
+        function updateComparisonCharts(selectedInstance, allInstances) {
+            // Speed Comparison Chart
+            if (speedChart) speedChart.destroy();
+            speedChart = new Chart(document.getElementById('speedComparisonChart'), {
+                type: 'line',
+                data: {
+                    labels: selectedInstance.traffic_data.map(d => d.timestamp),
+                    datasets: allInstances.map(instance => ({
+                        label: `Instance ${instance.instance_id}`,
+                        data: instance.traffic_data.map(d => parseFloat(d.live_speed)),
+                        borderColor: getRandomColor(),
+                        fill: false
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    title: {
+                        display: true,
+                        text: 'Speed Comparison Across Instances'
+                    }
+                }
+            });
+
+            // Temperature Comparison Chart
+            if (temperatureChart) temperatureChart.destroy();
+            temperatureChart = new Chart(document.getElementById('temperatureComparisonChart'), {
+                type: 'line',
+                data: {
+                    labels: selectedInstance.weather_data.map(d => d.timestamp),
+                    datasets: allInstances.map(instance => ({
+                        label: `Instance ${instance.instance_id}`,
+                        data: instance.weather_data.map(d => parseFloat(d.temperature)),
+                        borderColor: getRandomColor(),
+                        fill: false
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    title: {
+                        display: true,
+                        text: 'Temperature Comparison Across Instances'
+                    }
+                }
+            });
+
+            // Incidents Comparison Chart
+            if (incidentsChart) incidentsChart.destroy();
+            incidentsChart = new Chart(document.getElementById('incidentsComparisonChart'), {
+                type: 'bar',
+                data: {
+                    labels: allInstances.map(i => `Instance ${i.instance_id}`),
+                    datasets: [{
+                        label: 'Total Incidents',
+                        data: allInstances.map(i => i.summary.total_incidents),
+                        backgroundColor: allInstances.map(() => getRandomColor())
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    title: {
+                        display: true,
+                        text: 'Total Incidents by Instance'
+                    }
+                }
+            });
+
+            // Visibility Comparison Chart
+            if (visibilityChart) visibilityChart.destroy();
+            visibilityChart = new Chart(document.getElementById('visibilityComparisonChart'), {
+                type: 'line',
+                data: {
+                    labels: selectedInstance.weather_data.map(d => d.timestamp),
+                    datasets: allInstances.map(instance => ({
+                        label: `Instance ${instance.instance_id}`,
+                        data: instance.weather_data.map(d => parseFloat(d.visibility)),
+                        borderColor: getRandomColor(),
+                        fill: false
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    title: {
+                        display: true,
+                        text: 'Visibility Comparison Across Instances'
+                    }
+                }
+            });
+        }
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('statsModal')) {
+                closeStats();
+            }
+        }
+    </script>
+</body>
+</html>

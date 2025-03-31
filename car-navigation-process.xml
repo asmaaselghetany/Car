@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testset xmlns="http://cpee.org/ns/properties/2.0">
+  <executionhandler>ruby</executionhandler>
+  <dataelements>
+    <car>{}</car>
+    <coordinates>[]</coordinates>
+    <round>1</round>
+    <speed_after_calculations>0</speed_after_calculations>
+    <trafficResponse>{}</trafficResponse>
+    <travel_distance>0</travel_distance>
+    <weatherResponse>{}</weatherResponse>
+    <approximated_travel_time>0</approximated_travel_time>
+    <speed_calculation_threshold>0</speed_calculation_threshold>
+    <waypoints></waypoints>
+    <weather_control>["Fog", "Mist", "Heavy snow", "Blizzard", "Blowing snow", "Freezing fog"]</weather_control>
+    <data_retrieval_time>2</data_retrieval_time>
+    <instance_id>#{ENV['CPEE_INSTANCE_ID']}</instance_id>
+    <car_retrieval_time>1</car_retrieval_time>
+    <start_city></start_city>
+    <end_city></end_city>
+  </dataelements>
+  <endpoints>
+    <timeout>https://cpee.org/services/timeout.php</timeout>
+    <subprocess>https://cpee.org/flow/start/url/</subprocess>
+    <get_city_coordinates>https://lehre.bpm.in.tum.de/ports/15000/get_city_coordinates</get_city_coordinates>
+    <get_traffic_data>https://lehre.bpm.in.tum.de/ports/15000/get_traffic_data</get_traffic_data>
+    <get_weather_data>https://lehre.bpm.in.tum.de/ports/15000/get_weather_data</get_weather_data>
+    <get_statistics>https://lehre.bpm.in.tum.de/ports/15000/get_statistics</get_statistics>
+    <worklist>https://cpee.org/worklist/server/</worklist>
+    <update_car_speed>https://lehre.bpm.in.tum.de/ports/15000/update_car_speed</update_car_speed>
+    <update_car_lights>https://lehre.bpm.in.tum.de/ports/15000/update_car_lights</update_car_lights>
+    <update_car_fog_lights>https://lehre.bpm.in.tum.de/ports/15000/update_car_fog_lights</update_car_fog_lights>
+    <get_route_data>https://lehre.bpm.in.tum.de/ports/15000/get_route_data</get_route_data>
+    <last_location>https://lehre.bpm.in.tum.de/ports/15000/last_location</last_location>
+    <update_car_waypoints>https://lehre.bpm.in.tum.de/ports/15000/update_car_waypoints</update_car_waypoints>
+    <get_car_state>https://lehre.bpm.in.tum.de/ports/15000/get_car_state</get_car_state>
+    <update_instance_id>https://lehre.bpm.in.tum.de/ports/15000/update_instance_id</update_instance_id>
+    <powernap>https://cpee.org/services/powernap.php</powernap>
+  </endpoints>
+  <attributes>
+    <guarded>none</guarded>
+    <modeltype>CPEE</modeltype>
+    <theme>extended</theme>
+    <guarded_id>value</guarded_id>
+    <creator>Christine Ashcreek</creator>
+    <info>CarSystemtest1</info>
+    <author>Christine Ashcreek</author>
+    <model_uuid>9c97da72-10b3-4e1c-9ae9-e296f06b65c3</model_uuid>
+    <model_version>value</model_version>
+    <design_stage>development</design_stage>
+    <design_dir>Teaching.dir/Prak.dir/TUM-Prak-24-WS.dir/Asmaa Elghitany.dir/</design_dir>
+  </attributes>
+  <description>
+    <description xmlns="http://cpee.org/ns/description/1.0">
+      <manipulate id="a1" label="Initialize Data">
+        data.car = {}
+        data.trafficResponse = {}
+        data.weatherResponse = {}
+        data.speed_after_calculations = 0
+        data.speed_calculation_threshold = 0
+        data.round = 0
+        data.start_city = 'Karlsplatz 1, 80335 Munich'
+        data.end_city = 'Neuhauser Str. 1, 80331 Munich'
+        data.waypoints = data.start_city + ',' + data.end_city
+      </manipulate>
+      <call id="a3" endpoint="update_instance_id">
+        <parameters>
+          <label>Initialize car instance</label>
+          <method>:post</method>
+          <arguments>
+            <instance_id>!data.instance_id</instance_id>
+            <waypoints>!data.waypoints</waypoints>
+          </arguments>
+        </parameters>
+        <code>
+          <prepare/>
+          <finalize output="result">data.car = result["car"]</finalize>
+          <update output="result"/>
+          <rescue output="result"/>
+        </code>
+      </call>
+      <choose mode="exclusive">
+        <alternative condition="data.car['current_latitude'] == 0 &amp;&amp; data.car['current_longitude'] == 0">
+          <manipulate id="a4" label="Clean up coordinates">data.coordinates = []</manipulate>
+          <call id="a5" endpoint="get_city_coordinates">
+            <parameters>
+              <label>Get initial coordinates</label>
+              <method>:get</method>
+              <arguments>
+                <city>!data.waypoints.split(',')[0]</city>
+                <instance_id>!data.instance_id</instance_id>
+              </arguments>
+            </parameters>
+            <code>
+              <prepare/>
+              <finalize output="result">
+                data.coordinates &lt;&lt; result['latitude']
+                data.coordinates &lt;&lt; result['longitude']
+                data.coordinates &lt;&lt; result['arrival_latitude']
+                data.coordinates &lt;&lt; result['arrival_longitude']
+              </finalize>
+              <update output="result"/>
+              <rescue output="result"/>
+            </code>
+          </call>
+          <manipulate id="a6" label="Set initial car location">
+            data.car["current_latitude"] = data.coordinates[0]
+            data.car["current_longitude"] = data.coordinates[1]
+          </manipulate>
+        </alternative>
+        <otherwise/>
+      </choose>
+      <call id="a6" endpoint="get_route_data">
+        <parameters>
+          <label>Get route information</label>
+          <method>:get</method>
+          <arguments>
+            <waypoints>!data.waypoints.split(',').to_json</waypoints>
+            <instance_id>!data.instance_id</instance_id>
+          </arguments>
+        </parameters>
+        <code>
+          <prepare/>
+          <finalize output="result">
+            data.travel_distance = result['distance']
+            data.approximated_travel_time = result['duration']
+          </finalize>
+          <update output="result"/>
+          <rescue output="result"/>
+        </code>
+      </call>
+      <parallel wait="-1" cancel="last">
+        <parallel_branch>
+          <call id="a14" endpoint="timeout">
+            <parameters>
+              <label>Initial delay</label>
+              <method>:post</method>
+              <arguments>
+                <timeout>10</timeout>
+              </arguments>
+            </parameters>
+            <code>
+              <prepare/>
+              <finalize output="result"/>
+              <update output="result"/>
+              <rescue output="result"/>
+            </code>
+          </call>
+          <loop mode="pre_test" condition="data.car['arrived'] != true">
+            <call id="a7" endpoint="get_traffic_data">
+                      <parameters>
+                <label>Get traffic data</label>
+                <method>:get</method>
+                        <arguments>
+                  <latitude>!data.car['current_latitude']</latitude>
+                  <longitude>!data.car['current_longitude']</longitude>
+                          <instance_id>!data.instance_id</instance_id>
+                        </arguments>
+                      </parameters>
+                      <code>
+                        <prepare/>
+                <finalize output="result">data.trafficResponse = result</finalize>
+                        <update output="result"/>
+                        <rescue output="result"/>
+                      </code>
+                    </call>
+            <call id="a8" endpoint="get_weather_data">
+                      <parameters>
+                <label>Get weather data</label>
+                <method>:get</method>
+                        <arguments>
+                  <latitude>!data.car['current_latitude']</latitude>
+                  <longitude>!data.car['current_longitude']</longitude>
+                          <instance_id>!data.instance_id</instance_id>
+                        </arguments>
+                      </parameters>
+                      <code>
+                        <prepare/>
+                <finalize output="result">data.weatherResponse = result</finalize>
+                        <update output="result"/>
+                        <rescue output="result"/>
+                      </code>
+                    </call>
+            <call id="a9" endpoint="get_car_state">
+                      <parameters>
+                <label>Get car state</label>
+                <method>:get</method>
+                        <arguments>
+                          <instance_id>!data.instance_id</instance_id>
+                        </arguments>
+                      </parameters>
+                      <code>
+                        <prepare/>
+                        <finalize output="result">data.car = result["car"]</finalize>
+                        <update output="result"/>
+                        <rescue output="result"/>
+                      </code>
+                    </call>
+            <manipulate id="a32" label="Calculate base threshold">
+              threshold = 0
+              if data.trafficResponse["confidence"] == 1
+                threshold += 2
+              else
+                threshold += 1
+              end
+              free_flow = data.trafficResponse["free_flow_speeds"].to_f
+              live_speed = data.trafficResponse["live_speeds"].to_f
+              if free_flow &gt; live_speed
+                slowdown_percent = ((free_flow - live_speed) / free_flow) * 100
+                case slowdown_percent
+                when 0..10   then threshold += 2
+                when 10..30  then threshold += 5
+                when 30..50  then threshold += 8
+                else          threshold += 10
+                end
+              end
+              data.speed_calculation_threshold = threshold
+            </manipulate>
+            <manipulate id="a3" label="Calculate rush hour threshold">
+              threshold = data.speed_calculation_threshold
+              rush_hour = DateTime.now().hour
+              if rush_hour.between?(6, 9) || rush_hour.between?(16, 19)
+                threshold += 2
+              end
+              data.speed_calculation_threshold = threshold
+            </manipulate>
+            <choose mode="exclusive">
+              <alternative condition="data.trafficResponse['incidents'] != 0 || data.trafficResponse['road_closure'] != false">
+                <manipulate id="a21" label="Calculate incident threshold">
+                  threshold = data.speed_calculation_threshold
+                  if data.trafficResponse["incidents"] &gt; 0
+                    threshold += [data.trafficResponse["incidents"] * 2, 8].min
+                  end
+                  if data.trafficResponse["road_closure"]
+                    threshold += 8
+                  end
+                  data.speed_calculation_threshold = threshold
+                </manipulate>
+                  </alternative>
+                  <otherwise/>
+                </choose>
+                <choose mode="exclusive">
+              <alternative condition="data.weatherResponse['visibility'] &lt;= 5">
+                <manipulate id="a31" label="Calculate weather threshold">
+                  threshold = data.speed_calculation_threshold
+                  weather = data.weatherResponse["weather_conditions"]
+                  visibility_km = data.weatherResponse["visibility"]
+                  if !data.weather_control.include?(weather)
+                    case visibility_km
+                    when 0.1..0.5 then threshold += 8
+                    when 0.5..1   then threshold += 5
+                    when 1..2     then threshold += 3
+                    when 2..5     then threshold += 2
+                    end
+                  end
+                  data.speed_calculation_threshold = threshold
+                </manipulate>
+                  </alternative>
+                  <otherwise/>
+                </choose>
+            <manipulate id="a4" label="Calculate final speed">
+              base_speed = 100
+              threshold = data.speed_calculation_threshold
+              data.speed_after_calculations = base_speed - threshold
+            </manipulate>
+            <call id="a5" endpoint="update_car_speed">
+              <parameters>
+                <label>Update car speed</label>
+                <method>:post</method>
+                <arguments>
+                  <current_speed>!data.speed_after_calculations</current_speed>
+                  <current_threshold>!data.speed_calculation_threshold</current_threshold>
+                  <instance_id>!data.instance_id</instance_id>
+                </arguments>
+              </parameters>
+              <code>
+                <prepare/>
+                <finalize output="result"/>
+                <update output="result"/>
+                <rescue output="result"/>
+              </code>
+            </call>
+            <call id="a15" endpoint="timeout">
+                  <parameters>
+                <label>Wait between updates</label>
+                        <method>:post</method>
+                        <arguments>
+                  <timeout>5</timeout>
+                    </arguments>
+                  </parameters>
+                  <code>
+                    <prepare/>
+                    <finalize output="result"/>
+                    <update output="result"/>
+                    <rescue output="result"/>
+                  </code>
+                </call>
+            <choose mode="exclusive">
+              <alternative condition="data.car['arrived'] == true">
+                <call id="a33" endpoint="get_statistics">
+                  <parameters>
+                    <label>Get journey statistics</label>
+                    <method>:get</method>
+                    <arguments>
+                      <instance_id>!data.instance_id</instance_id>
+                    </arguments>
+                  </parameters>
+                  <code>
+                    <prepare/>
+                    <finalize output="result">data.statistics = result</finalize>
+                    <update output="result"/>
+                    <rescue output="result"/>
+                  </code>
+                </call>
+              </alternative>
+              <otherwise/>
+            </choose>
+          </loop>
+        </parallel_branch>
+      </parallel>
+    </description>
+  </description>
+</testset>
